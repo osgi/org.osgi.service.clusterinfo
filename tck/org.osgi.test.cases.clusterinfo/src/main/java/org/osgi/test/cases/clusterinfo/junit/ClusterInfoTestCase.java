@@ -18,12 +18,15 @@
 
 package org.osgi.test.cases.clusterinfo.junit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.junit.jupiter.api.Test;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
@@ -34,12 +37,16 @@ import org.osgi.framework.startlevel.dto.FrameworkStartLevelDTO;
 import org.osgi.service.clusterinfo.FrameworkManager;
 import org.osgi.service.clusterinfo.FrameworkNodeStatus;
 import org.osgi.service.clusterinfo.NodeStatus;
-import org.osgi.test.support.OSGiTestCase;
+import org.osgi.test.common.annotation.InjectBundleContext;
 import org.osgi.util.tracker.ServiceTracker;
 
-public class ClusterInfoTestCase extends OSGiTestCase {
+public class ClusterInfoTestCase {
+
+	@InjectBundleContext
+	BundleContext		context;
+	@Test
 	public void testFrameworkNodeStatusProperties() {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 		ServiceReference<FrameworkNodeStatus> sref = ctx
 				.getServiceReference(FrameworkNodeStatus.class);
 		Map<String,Object> props = new HashMap<>();
@@ -48,37 +55,30 @@ public class ClusterInfoTestCase extends OSGiTestCase {
 			props.put(key, sref.getProperty(key));
 		}
 
-		assertNotNull(props.get("osgi.clusterinfo.id"));
-		assertNotNull(props.get("osgi.clusterinfo.cluster"));
+		assertThat(props.get("osgi.clusterinfo.id")).isNotNull();
+		assertThat(props.get("osgi.clusterinfo.cluster")).isNotNull();
 
-		assertEquals(ctx.getProperty("org.osgi.framework.version"),
-				props.get("org.osgi.framework.version"));
-		assertEquals(ctx.getProperty("org.osgi.framework.processor"),
-				props.get("org.osgi.framework.processor"));
-		assertEquals(ctx.getProperty("org.osgi.framework.os.name"),
-				props.get("org.osgi.framework.os.name"));
-		assertEquals(ctx.getProperty("org.osgi.framework.os.version"),
-				props.get("org.osgi.framework.os.version"));
+		assertThat(props.get("org.osgi.framework.version")).isEqualTo(ctx.getProperty("org.osgi.framework.version"));
+		assertThat(props.get("org.osgi.framework.processor")).isEqualTo(ctx.getProperty("org.osgi.framework.processor"));
+		assertThat(props.get("org.osgi.framework.os.name")).isEqualTo(ctx.getProperty("org.osgi.framework.os.name"));
+		assertThat(props.get("org.osgi.framework.os.version")).isEqualTo(ctx.getProperty("org.osgi.framework.os.version"));
 
-		assertEquals(ctx.getProperty("java.version"),
-				props.get("java.version"));
-		assertEquals(ctx.getProperty("java.runtime.version"),
-				props.get("java.runtime.version"));
-		assertEquals(ctx.getProperty("java.specification.version"),
-				props.get("java.specification.version"));
-		assertEquals(ctx.getProperty("java.vm.version"),
-				props.get("java.vm.version"));
+		assertThat(props.get("java.version")).isEqualTo(ctx.getProperty("java.version"));
+		assertThat(props.get("java.runtime.version")).isEqualTo(ctx.getProperty("java.runtime.version"));
+		assertThat(props.get("java.specification.version")).isEqualTo(ctx.getProperty("java.specification.version"));
+		assertThat(props.get("java.vm.version")).isEqualTo(ctx.getProperty("java.vm.version"));
     }
 
+	@Test
 	public void testFrameworkManager() throws Exception {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 		Collection<ServiceReference<FrameworkManager>> srefs = ctx
 				.getServiceReferences(
 				FrameworkManager.class,
 				"(objectClass=" + FrameworkNodeStatus.class.getName() + ")");
-		assertNotNull(srefs);
+		assertThat(srefs).isNotNull();
 
-		assertEquals("One framework manager expected", 1, srefs.size());
+		assertThat(srefs).as("One framework manager expected").hasSize(1);
 		FrameworkManager fm = ctx.getService(srefs.iterator().next());
 
 		URL tb1URL = getClass().getClassLoader().getResource("tb1.jar");
@@ -86,8 +86,7 @@ public class ClusterInfoTestCase extends OSGiTestCase {
 		BundleDTO dto2 = fm.getBundle(dto.id);
 		assertBundleDTOEquals(dto, dto2);
 
-		assertEquals("A custom header",
-				fm.getBundleHeaders(dto.id).get("Custom-Header").trim());
+		assertThat(fm.getBundleHeaders(dto.id).get("Custom-Header").trim()).isEqualTo("A custom header");
 		boolean foundDTO = false;
 		for (BundleDTO bdto : fm.getBundles()) {
 			if (bdto.id == dto.id) {
@@ -95,20 +94,18 @@ public class ClusterInfoTestCase extends OSGiTestCase {
 				foundDTO = true;
 			}
 		}
-		assertTrue(foundDTO);
+		assertThat(foundDTO).isTrue();
 
-		assertEquals("Precondition", 0,
-				fm.getServiceReferences(
-						"(&(objectClass=java.lang.String)(testbundle=tb1))")
-						.size());
+		assertThat(fm.getServiceReferences(
+				"(&(objectClass=java.lang.String)(testbundle=tb1))")).as("Precondition").isEmpty();
 		fm.startBundle(dto.id);
 		
 		Collection<ServiceReferenceDTO> bsrefs = fm.getServiceReferences(
 				"(&(objectClass=java.lang.String)(testbundle=tb1))");
-		assertEquals(1, bsrefs.size());
+		assertThat(bsrefs.size()).isEqualTo(1);
 		ServiceReferenceDTO sdto = bsrefs.iterator().next();
-		assertEquals(dto.id, sdto.bundle);
-		assertEquals("some value", sdto.properties.get("some.property"));
+		assertThat(sdto.bundle).isEqualTo(dto.id);
+		assertThat(sdto.properties.get("some.property")).isEqualTo("some value");
 
 		assertServiceReferenceDTOEquals(sdto, fm.getServiceReference(sdto.id));
 
@@ -119,78 +116,74 @@ public class ClusterInfoTestCase extends OSGiTestCase {
 				foundService = true;
 			}
 		}
-		assertTrue(foundService);
+		assertThat(foundService).isTrue();
 
-		assertEquals("Precondition", 0,
-				fm.getServiceReferences(
-						"(&(objectClass=java.lang.String)(testbundle=tb2))")
-						.size());
+		assertThat(fm.getServiceReferences(
+				"(&(objectClass=java.lang.String)(testbundle=tb2))")).as("Precondition").isEmpty();
 
 		URL tb2URL = getClass().getClassLoader().getResource("tb2.jar");
 		BundleDTO udto = fm.updateBundle(dto.id, tb2URL.toString());
 
-		assertEquals("Service from pre-update bundle should be gone", 0,
-				fm.getServiceReferences(
+		assertThat(fm.getServiceReferences(
 						"(&(objectClass=java.lang.String)(testbundle=tb1))")
-						.size());
+						.size()).as("Service from pre-update bundle should be gone").isEqualTo(0);
 		Collection<ServiceReferenceDTO> usrefs = fm.getServiceReferences(
 				"(&(objectClass=java.lang.String)(testbundle=tb2))");
-		assertEquals(1, usrefs.size());
+		assertThat(usrefs.size()).isEqualTo(1);
 		ServiceReferenceDTO usdto = usrefs.iterator().next();
-		assertEquals(usdto.bundle, udto.id);
-		assertEquals("some different value",
-				usdto.properties.get("some.property"));
+		assertThat(udto.id).isEqualTo(usdto.bundle);
+		assertThat(usdto.properties.get("some.property")).isEqualTo("some different value");
 		
 		fm.stopBundle(udto.id);
-		assertEquals("TB2 registered service should be gone", 0,
-				fm.getServiceReferences(
+		assertThat(fm.getServiceReferences(
 						"(&(objectClass=java.lang.String)(testbundle=tb2))")
-						.size());
-		assertEquals(Bundle.RESOLVED, fm.getBundleState(udto.id));
+						.size()).as("TB2 registered service should be gone").isEqualTo(0);
+		assertThat(fm.getBundleState(udto.id)).isEqualTo(Bundle.RESOLVED);
 
 		int sizeBeforeUninstall = fm.getBundles().size();
 		BundleDTO undto = fm.uninstallBundle(udto.id);
-		assertEquals(undto.id, udto.id);
-		assertEquals(Bundle.UNINSTALLED, undto.state);
-		assertEquals(sizeBeforeUninstall - 1, fm.getBundles().size());
+		assertThat(udto.id).isEqualTo(undto.id);
+		assertThat(undto.state).isEqualTo(Bundle.UNINSTALLED);
+		assertThat(fm.getBundles()).hasSize(sizeBeforeUninstall - 1);
 	}
 
+	@Test
 	public void testFrameworkManager2() throws Exception {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 		Collection<ServiceReference<FrameworkManager>> srefs = ctx
 				.getServiceReferences(FrameworkManager.class, "(objectClass="
 						+ FrameworkNodeStatus.class.getName() + ")");
-		assertNotNull(srefs);
+		assertThat(srefs).isNotNull();
 
-		assertEquals("One framework manager expected", 1, srefs.size());
+		assertThat(srefs).as("One framework manager expected").hasSize(1);
 		FrameworkManager fm = ctx.getService(srefs.iterator().next());
 
 		URL tb4URL = getClass().getClassLoader().getResource("tb4.jar");
 		BundleDTO dto = fm.installBundle(tb4URL.toString());
 
 		fm.setBundleStartLevel(dto.id, 123);
-		assertEquals(123, fm.getBundleStartLevel(dto.id).startLevel);
+		assertThat(fm.getBundleStartLevel(dto.id).startLevel).isEqualTo(123);
 		
 		fm.uninstallBundle(dto.id);
 	}
 
+	@Test
 	public void testFrameworkManagerFrameworkStartLevel() throws Exception {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 		Collection<ServiceReference<FrameworkManager>> srefs = ctx
 				.getServiceReferences(FrameworkManager.class, "(objectClass="
 						+ FrameworkNodeStatus.class.getName() + ")");
-		assertNotNull(srefs);
+		assertThat(srefs).isNotNull();
 
-		assertEquals("One framework manager expected", 1, srefs.size());
+		assertThat(srefs).as("One framework manager expected").hasSize(1);
 		FrameworkManager fm = ctx.getService(srefs.iterator().next());
 
 		FrameworkStartLevel fwsl = ctx.getBundle(0)
 				.adapt(FrameworkStartLevel.class);
 		FrameworkStartLevelDTO fwsldto = fm.getFrameworkStartLevel();
 
-		assertEquals(fwsl.getInitialBundleStartLevel(),
-				fwsldto.initialBundleStartLevel);
-		assertEquals(fwsl.getStartLevel(), fwsldto.startLevel);
+		assertThat(fwsldto.initialBundleStartLevel).isEqualTo(fwsl.getInitialBundleStartLevel());
+		assertThat(fwsldto.startLevel).isEqualTo(fwsl.getStartLevel());
 
 		try {
 			FrameworkStartLevelDTO fwsldto2 = new FrameworkStartLevelDTO();
@@ -198,31 +191,32 @@ public class ClusterInfoTestCase extends OSGiTestCase {
 			fwsldto2.startLevel = 99;
 
 			fm.setFrameworkStartLevel(fwsldto2);
-			assertEquals(fwsl.getInitialBundleStartLevel(),
-					fwsldto2.initialBundleStartLevel);
-			assertEquals(99, fwsldto2.startLevel);
+			assertThat(fwsldto2.initialBundleStartLevel).isEqualTo(fwsl.getInitialBundleStartLevel());
+			assertThat(fwsldto2.startLevel).isEqualTo(99);
 		} finally {
 			fm.setFrameworkStartLevel(fwsldto);
 		}
 	}
 
+	@Test
 	public void testMetrics() {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 		ServiceReference<NodeStatus> sref = ctx
 				.getServiceReference(NodeStatus.class);
 		NodeStatus ns = ctx.getService(sref);
 		Map<String,Object> metrics = ns.getMetrics();
-		assertTrue("There should be some metrics", metrics.size() > 0);
+		assertThat(metrics.size() > 0).as("There should be some metrics").isTrue();
 		
 		String metricKey = metrics.keySet().iterator().next();
 		Map<String,Object> metrics2 = ns.getMetrics(metricKey);
-		assertEquals(1, metrics2.size());
-		assertEquals(metrics.get(metricKey), metrics2.get(metricKey));
+		assertThat(metrics2.size()).isEqualTo(1);
+		assertThat(metrics2.get(metricKey)).isEqualTo(metrics.get(metricKey));
 
 	}
 
+	@Test
 	public void testCustomTags() throws Exception {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 
 		ServiceTracker<NodeStatus,NodeStatus> st = new ServiceTracker<NodeStatus,NodeStatus>(
 				ctx, ctx.createFilter("(&(objectClass="
@@ -234,47 +228,45 @@ public class ClusterInfoTestCase extends OSGiTestCase {
 		Collection<ServiceReference<FrameworkManager>> srefs = ctx
 				.getServiceReferences(FrameworkManager.class,
 						"(objectClass=" + NodeStatus.class.getName() + ")");
-		assertEquals(1, srefs.size());
+		assertThat(srefs).hasSize(1);
 		FrameworkManager fm = ctx.getService(srefs.iterator().next());
 
-		assertNull("Precondition", st.getService());
+		assertThat(st.getService()).as("Precondition").isNull();
 
 		URL tb3URL = getClass().getClassLoader().getResource("tb3.jar");
 		BundleDTO dto = fm.installBundle(tb3URL.toString());
 		fm.startBundle(dto.id);
 
-		assertNotNull(
-				"The service with added custom properties should be there now",
-				st.waitForService(5000));
+		assertThat(st.waitForService(5000)).as("The service with added custom properties should be there now").isNotNull();
 	}
 
 	private void assertBundleDTOEquals(BundleDTO dto, BundleDTO dto2) {
-		assertEquals(dto.id, dto2.id);
-		assertEquals(dto.lastModified, dto2.lastModified);
-		assertEquals(dto.state, dto2.state);
-		assertEquals(dto.symbolicName, dto2.symbolicName);
-		assertEquals(dto.version, dto2.version);
+		assertThat(dto2.id).isEqualTo(dto.id);
+		assertThat(dto2.lastModified).isEqualTo(dto.lastModified);
+		assertThat(dto2.state).isEqualTo(dto.state);
+		assertThat(dto2.symbolicName).isEqualTo(dto.symbolicName);
+		assertThat(dto2.version).isEqualTo(dto.version);
 	}
 
 	private void assertServiceReferenceDTOEquals(ServiceReferenceDTO dto,
 			ServiceReferenceDTO dto2) {
-		assertEquals(dto.id, dto2.id);
-		assertEquals(dto.bundle, dto2.bundle);
+		assertThat(dto2.id).isEqualTo(dto.id);
+		assertThat(dto2.bundle).isEqualTo(dto.bundle);
 		assertServicePropMapEquals(dto.properties, dto2.properties);
-		assertTrue(Arrays.equals(dto.usingBundles, dto2.usingBundles));
+		assertThat(Arrays.equals(dto.usingBundles, dto2.usingBundles)).isTrue();
 	}
 
 	private void assertServicePropMapEquals(Map<String,Object> p1,
 			Map<String,Object> p2) {
-		assertEquals(p1.size(), p2.size());
+		assertThat(p2.size()).isEqualTo(p1.size());
 
 		for (Map.Entry<String,Object> entry : p1.entrySet()) {
 			Object v1 = entry.getValue();
 			Object v2 = p2.get(entry.getKey());
 			if (v1 instanceof Object[]) {
-				assertTrue(Arrays.equals((Object[]) v1, (Object[]) v2));
+				assertThat(Arrays.equals((Object[]) v1, (Object[]) v2)).isTrue();
 			} else {
-				assertEquals(v1, v2);
+				assertThat(v2).isEqualTo(v1);
 			}
 		}
 	}

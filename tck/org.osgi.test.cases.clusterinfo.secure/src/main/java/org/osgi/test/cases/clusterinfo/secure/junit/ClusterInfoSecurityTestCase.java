@@ -18,21 +18,28 @@
 
 package org.osgi.test.cases.clusterinfo.secure.junit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.net.URL;
 import java.util.Collection;
 
+import org.junit.jupiter.api.Test;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.framework.dto.BundleDTO;
 import org.osgi.service.clusterinfo.FrameworkManager;
 import org.osgi.service.clusterinfo.NodeStatus;
-import org.osgi.test.support.OSGiTestCase;
+import org.osgi.test.common.annotation.InjectBundleContext;
 import org.osgi.util.tracker.ServiceTracker;
 
-public class ClusterInfoSecurityTestCase extends OSGiTestCase {
+public class ClusterInfoSecurityTestCase {
 
+	@InjectBundleContext
+	BundleContext		context;
+
+	@Test
 	public void testPermissionDenied() throws Exception {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 
 		ServiceTracker<NodeStatus,NodeStatus> st = new ServiceTracker<NodeStatus,NodeStatus>(
 				ctx,
@@ -44,7 +51,7 @@ public class ClusterInfoSecurityTestCase extends OSGiTestCase {
 		Collection<ServiceReference<FrameworkManager>> srefs = ctx
 				.getServiceReferences(FrameworkManager.class,
 						"(objectClass=" + NodeStatus.class.getName() + ")");
-		assertEquals(1, srefs.size());
+		assertThat(srefs).hasSize(1);
 		FrameworkManager fm = ctx.getService(srefs.iterator().next());
 
 		URL tbURL = getClass().getClassLoader().getResource("tb1.jar");
@@ -52,15 +59,15 @@ public class ClusterInfoSecurityTestCase extends OSGiTestCase {
 
 		try {
 			fm.startBundle(dto.id);
-			assertNull("Bundle should not have permission to add tag",
-					st.getService());
+			assertThat(st.getService()).as("Bundle should not have permission to add tag").isNull();
 		} finally {
 			fm.uninstallBundle(dto.id);
 		}
 	}
 
+	@Test
 	public void testPermissionOk() throws Exception {
-		BundleContext ctx = getContext();
+		BundleContext ctx = context;
 
 		ServiceTracker<NodeStatus,NodeStatus> st = new ServiceTracker<NodeStatus,NodeStatus>(
 				ctx,
@@ -72,10 +79,10 @@ public class ClusterInfoSecurityTestCase extends OSGiTestCase {
 		Collection<ServiceReference<FrameworkManager>> srefs = ctx
 				.getServiceReferences(FrameworkManager.class,
 						"(objectClass=" + NodeStatus.class.getName() + ")");
-		assertEquals(1, srefs.size());
+		assertThat(srefs).hasSize(1);
 		FrameworkManager fm = ctx.getService(srefs.iterator().next());
 
-		assertNull("Precondition", st.getService());
+		assertThat(st.getService()).as("Precondition").isNull();
 
 		URL tbURL = getClass().getClassLoader().getResource("tb2.jar");
 		BundleDTO dto = fm.installBundle(tbURL.toString());
@@ -83,9 +90,7 @@ public class ClusterInfoSecurityTestCase extends OSGiTestCase {
 		try {
 			fm.startBundle(dto.id);
 
-			assertNotNull(
-					"The service with added custom properties should be there now",
-					st.waitForService(5000));
+			assertThat(st.waitForService(5000)).as("The service with added custom properties should be there now").isNotNull();
 		} finally {
 			fm.uninstallBundle(dto.id);
 		}
